@@ -1,35 +1,66 @@
-import fs from 'fs';
 import { ErrorType, UserProps, UserSchoolProps } from 'constants/types';
-import users from 'public/users.json';
+import { dbFileHost, dbSecretKey } from 'config';
 
-const userDb: UserProps[] = users;
+async function getUserDb(): Promise<UserProps[]> {
+  try {
+    const res: UserProps[] = await fetch(dbFileHost, {
+      method: 'GET',
+      mode: 'cors',
+      headers: {
+        'X-Master-Key': `${dbSecretKey}`,
+        'X-Bin-Meta': 'false'
+      },
+    })
+    .then(response => response.json())
+    .then(data => data);
+    return res;
+  } catch (error: unknown) {
+    throw error;
+  }
+}
 
-const saveData = async () => await fs.writeFileSync('public/users.json', JSON.stringify(users));
+async function updateUserDb(params: UserProps[]): Promise<UserProps[]> {
+  try {
+    const res: UserProps[] = await fetch(dbFileHost, {
+      method: 'PUT',
+      mode: 'cors',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-key': `${dbSecretKey}`,
+      },
+      body: JSON.stringify(params),
+    })
+    .then(response => response.json())
+    .then(data => data);
+    return res;
+  } catch (error: unknown) {
+    throw error;
+  }
+}
 
-export const getOrCreateUserByName = (name: string): UserProps => {
-  const userFound = userDb.find((user: UserProps) => user.name === name);
+export const getOrCreateUserByName = async (name: string): Promise<UserProps> => {
+  const users = await getUserDb();
+  const userFound = users.find((user: UserProps) => user.name === name);
   if (!userFound) {
     const newUser = {
       name,
       educations: []
     };
-    userDb.push(newUser);
-    saveData();
+    users.push(newUser);
+    await updateUserDb(users);
     return newUser
   }
   return userFound;
 };
 
-export const update = (name: string, educations: UserSchoolProps[]): UserProps | ErrorType => {
-  const userFound = userDb.find((user: UserProps) => user.name === name);
-  if (!userFound) {
+export const update = async (name: string, educations: UserSchoolProps[]): Promise<UserProps | ErrorType> => {
+  const users = await getUserDb();
+  const newValue = [...users]
+  const userFound = newValue.findIndex((user: UserProps) => user.name === name);
+  if (userFound === -1) {
     throw {code: 404, message: "User not found"}
   }
-  const payload = {
-    name,
-    educations
-  };
-  Object.assign(userFound, payload);
-  saveData()
-  return userFound;
+  newValue[userFound].educations = [...educations];
+  await updateUserDb(newValue);
+  return newValue[userFound];
 };
