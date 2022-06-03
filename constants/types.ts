@@ -34,9 +34,9 @@ export type UserSchoolProps = {
   schools: SchoolProps;
   degree?: string;
   field_of_study?: string;
-  start_year?: number;
-  end_year?: number;
-  end_year_expected?: number;
+  start_year?: string;
+  end_year?: string;
+  end_year_expected?: string;
   description?: string;
 }
 
