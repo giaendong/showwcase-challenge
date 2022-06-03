@@ -1,10 +1,10 @@
 import fs from 'fs';
 import { ErrorType, UserProps, UserSchoolProps } from 'constants/types';
-import users from 'data/users.json';
+import users from 'public/users.json';
 
 const userDb: UserProps[] = users;
 
-const saveData = async () => await fs.writeFileSync('data/users.json', JSON.stringify(users));
+const saveData = async () => await fs.writeFileSync('public/users.json', JSON.stringify(users));
 
 export const getOrCreateUserByName = (name: string): UserProps => {
   const userFound = userDb.find((user: UserProps) => user.name === name);
