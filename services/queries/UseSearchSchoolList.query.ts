@@ -1,3 +1,4 @@
+import { apiHost } from 'config';
 import {ErrorType, SearchSchoolNameParams, SearchSchoolNameResponse} from 'constants/types'
 import {QueryObserverResult, useQuery} from 'react-query';
 
@@ -11,7 +12,7 @@ export function useSearchSchoolListQuery(
       useSearchSchoolListQueryKey,
       params.name,
     ],
-    async () => await fetch(`http://universities.hipolabs.com/search?name=${params.name}`)
+    async () => await fetch(`${apiHost}/schools/${params.name}`)
     .then(response => response.json())
     .then(data => {
       return {
