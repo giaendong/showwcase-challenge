@@ -1,6 +1,6 @@
 import { Button } from 'components/atoms'
 import { apiHost } from 'config'
-import { GetOrCreateUserParams } from 'constants/types'
+import { GetOrCreateUserParams, SchoolProps, UserSchoolProps } from 'constants/types'
 import type { NextPage } from 'next'
 import { useRouter } from 'next/router'
 import { useCallback, useMemo, useState } from 'react'
@@ -10,9 +10,22 @@ import { useGetOrCreateUserQuery, useGetOrCreateUserQueryKey, useSearchSchoolLis
 import styled from 'styled-components'
 import theme from 'theme'
 import format from 'date-fns/format'
+import AddSchoolModal from 'components/organisms/AddSchoolModal/AddSchoolModal.organism'
 
 type ActiveProps = {
   isActive: boolean;
+}
+
+const defaultSchoolProps = {
+  school:{
+    name: "",
+  },
+  degree: undefined,
+  field_of_study: undefined,
+  start_year: undefined,
+  end_year: undefined,
+  end_year_expected: false,
+  description: undefined
 }
 
 const Wrapper = styled.div`text-align: center;`
@@ -24,12 +37,13 @@ const EducationSection = styled.div`
 `
 const BookmarksSection = styled.div`
   flex: 0;
+  display: flex;
+  flex-direction: column;
   background-color: ${(props) => props.theme.colors.lightgray};
-  min-height: 30rem;
-  min-width: 15%;
+  min-height: 300px;
+  min-width: 25%;
   text-align: left;
   padding: 2rem;
-
 `
 const DescSection = styled.div`
   flex: 1;
@@ -42,6 +56,7 @@ const DescBox = styled.div<ActiveProps>`
 background-color: ${(props) => props.isActive ? props.theme.colors.white : props.theme.colors.lightgray};
 border: 1px solid ${(props) => props.theme.colors.lightgray};
 padding: 2rem;
+margin-bottom: 2rem; 
 h4, h5 {
   margin: 0px;
 }
@@ -55,7 +70,10 @@ const UserInfo: NextPage = () => {
   const queryClient = useQueryClient();
   const {name} = router.query;
   const [schoolName, setSchoolName] =  useState<string>('');
-  const [activeSchool, setActiveSchool] = useState<string>('');
+  const [activeSchool, setActiveSchool] = useState<number>(0);
+  const [newEducation, setNewEducation] = useState<UserSchoolProps>(defaultSchoolProps);
+  const [isModalOpen, toggleModal] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   const userQuery = useGetOrCreateUserQuery({name} as GetOrCreateUserParams);
 
@@ -75,7 +93,8 @@ const UserInfo: NextPage = () => {
 
   const updateUser = useUpdateUser({
     onSuccess: () => {
-      queryClient.invalidateQueries(useGetOrCreateUserQueryKey);
+      // TODO: try use invalidateQueries or refetch
+      queryClient.clear();
     },
     onError: () => {
       console.error('Update User failed')
@@ -83,29 +102,47 @@ const UserInfo: NextPage = () => {
   });
 
   const handleSubmit = useCallback(() => {
-    name && updateUser.mutate({name: name as string, educations: [{schools: {name: Math.random().toString()}}]})
-  }, [name, updateUser])
+    if (!newEducation.degree || !newEducation.field_of_study || !newEducation.end_year || ! newEducation.start_year) { // TODO: update error handling
+      setErrorMessage("Some fields are required")
+    } else {
+      if (newEducation?.school?.name) {
+        const educations = user?.educations || [];
+        educations.push(newEducation)
+        updateUser.mutate({
+          name: name as string,
+          educations
+        })
+        toggleModal(false)
+      } else {
+        setErrorMessage("Invalid school. Please select correct school.")
+      }
+    }
+  }, [name, newEducation, updateUser, user?.educations])
 
-  console.log(user,searchSchoolList)
+  const handleCancel = useCallback(() => {
+    toggleModal(false);
+    setNewEducation(defaultSchoolProps);
+  }, [])
 
-  const renderBookmarks = useMemo(() => user?.educations?.map((education, index) =>
+  const renderBookmarks = useMemo(() => user?.educations?.slice(0).reverse().map((education, index) =>
     <Button.Link
       key={index}
-      color={activeSchool === education.schools.name ? theme.colors.black : theme.colors.gray}
-      onClick={() => setActiveSchool(education.schools.name)}
+      color={activeSchool === index ? theme.colors.black : theme.colors.gray}
+      onClick={() => setActiveSchool(index)}
+      mb={2}
     >
-      {education.schools.name}
+      {education.school?.name}
     </Button.Link>), [user?.educations, activeSchool])
   
-  const renderDescription = useMemo(() => user?.educations?.map((education, index) => {
+  const renderDescription = useMemo(() => user?.educations?.slice(0).reverse().map((education, index) => {
     const startYear = education.start_year ? format(new Date(education.start_year), 'LLLL yyyy') : '';
     const endYear = education.end_year ? format(new Date(education.end_year), 'LLLL yyyy') : '';
-    const endYearExpected = education.end_year_expected ? format(new Date(education.end_year_expected), 'LLLL yyyy') : '';
+    const endYearExpected = education.end_year_expected;
     return (
-      <DescBox key={`${index}-${education.schools.name}`} isActive={activeSchool === education.schools.name}>
-        <h4>{`${endYearExpected ? 'Study' : `${education.degree} of`} ${education.field_of_study} @ ${education.schools.name}`}</h4>
-        <h5>{`${startYear} - ${endYearExpected ? `Present (expected finished at ${endYearExpected})` : endYear}`}</h5>
-        <small>{`${education.schools.alpha_two_code} - ${education.schools.country}${education.schools?.web_pages?.[0] && ` - ${education.schools.web_pages[0]}`}`}</small>
+      <DescBox key={`${index}-${education.school?.name}`} isActive={activeSchool === index}>
+        <h4>{`${endYearExpected ? 'Study' : `${education.degree} of`} ${education.field_of_study} @ ${education.school?.name}`}</h4>
+        <h5>{`${startYear} - ${endYearExpected ? `Present (expected finished at ${endYear})` : endYear}`}</h5>
+        <small>{`${education.school?.alpha_two_code} - ${education.school?.country}${education.school?.web_pages?.[0] && ` - ${education.school?.web_pages[0]}`}`}</small>
         <p>{education.description}</p>
       </DescBox>
     )
@@ -114,15 +151,31 @@ const UserInfo: NextPage = () => {
   return (
     <Wrapper>
       <h3>Welcome to {name} education showwcase.</h3>
-      <Button.Base width={'10rem'} alignSelf={'center'} onClick={handleSubmit}>Add new education</Button.Base>
-      <EducationSection>
-        <BookmarksSection>
-          {renderBookmarks}
-        </BookmarksSection>
-        <DescSection>
-          {renderDescription}
-        </DescSection>
-      </EducationSection>
+      <Button.Base width={'10rem'} alignSelf={'center'} onClick={() => toggleModal(true)}>Add new education</Button.Base>
+      {
+        user?.educations && user?.educations?.length > 0 &&
+          <>
+            <EducationSection>
+              <BookmarksSection>
+                {renderBookmarks}
+              </BookmarksSection>
+              <DescSection>
+                {renderDescription}
+              </DescSection>
+            </EducationSection>
+          </>
+      }
+      <AddSchoolModal
+        isOpen={isModalOpen}
+        onRequestModalClose={handleCancel}
+        onCancel={handleCancel}
+        onSubmit={handleSubmit}
+        newEducation={newEducation}
+        setNewEducation={setNewEducation}
+        schoolList={searchSchoolList}
+        setSchoolName={setSchoolName}
+        errorMessage={errorMessage}
+      />
     </Wrapper>
   )
 }

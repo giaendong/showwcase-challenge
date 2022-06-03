@@ -23,7 +23,7 @@ export type UpdateUserResponse = {
 }
 
 export type SchoolProps = {
-  name: string;
+  name?: string;
   alpha_two_code?: string;
   domains?: string[];
   country?: string;
@@ -31,12 +31,12 @@ export type SchoolProps = {
 }
 
 export type UserSchoolProps = {
-  schools: SchoolProps;
+  school: SchoolProps;
   degree?: string;
   field_of_study?: string;
   start_year?: string;
   end_year?: string;
-  end_year_expected?: string;
+  end_year_expected?: boolean;
   description?: string;
 }
 
